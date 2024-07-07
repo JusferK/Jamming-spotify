@@ -37,10 +37,10 @@ const getRefreshToken = async refreshToken => {
         body: new URLSearchParams({
             grant_type: 'refresh_token',
             refresh_token: refreshToken,
-            client_id: client_id
         }).toString(),
         headers: {
-           'Content-type': 'application/x-www-form-urlencoded'
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': 'Basic ' + btoa(client_id + ':' + client_secret).toString()
         }
     });
 
@@ -60,17 +60,18 @@ const everyFifthyFive = refreshToken => {
     console.log('The count started at: ' + countStartedAt);
     console.log('The count will stop at: ' + endTime);
 
-    setInterval(()=>{
-        getRefreshToken(refreshToken).then((data) => {
-
-            const accessInfo = {
-                access_token: data.access_token,
-                refresh_token: data.refresh_token,
-                date: (new Date().getDate() + '/' + (new Date().getMonth() + 1) + '/' + new Date().getFullYear()),
-                hour: (new Date().getHours() + ':' + new Date().getMinutes() + ':' + new Date().getSeconds())
-            };
-
-            localStorage.setItem('accessInfo', accessInfo);
+    setInterval(() => {
+        getRefreshToken(refreshToken)
+        .then((data) => {
+            console.log(data)
+            const accessInfo = JSON.parse(localStorage.getItem('accessInfo'));
+            accessInfo.access_token = data.access_token;
+            if(data.hasOwnProperty('refresh_token')) accessInfo.refresh_token = data.refresh_token;
+            accessInfo.date = (new Date().getDate() + '/' + (new Date().getMonth() + 1) + '/' + new Date().getFullYear());
+            accessInfo.hour = (new Date().getHours() + ':' + new Date().getMinutes() + ':' + new Date().getSeconds())
+            localStorage.setItem('accessInfo', JSON.stringify(accessInfo));
+        }).catch((e) => {
+            console.log(e);
         });
 
         const date = new Date();
@@ -119,42 +120,54 @@ export default function Main() {
             let partsFullHour = tokenInfo.hour.split(':');
             let newDate = new Date(partsFullDate[2], (partsFullDate[1] - 1), partsFullDate[0], partsFullHour[0], partsFullHour[1], partsFullHour[2]);
             let milisecondsHasPassed = (new Date().getTime()) - newDate.getTime();
-            let timeHasPassedInHours = Math.abs(milisecondsHasPassed) / 3.6e+6;
+            let timeHasPassedInHours = milisecondsHasPassed / 3.6e+6;
             let timeForIntervalHR = 0.916667 - timeHasPassedInHours;
-            let intervalTimeMS = Math.abs(timeForIntervalHR) * 3.6e+6;
-            let todaysDate = (new Date().getDate()) + '/' + (new Date().getMonth()) + '/' + (new Date().getFullYear());
-
-            if(tokenInfo.date === todaysDate) {
-                if((new Date().getHours()) > (newDate.getHours() + 1)) {
-                    getToken(codeURL)
-                    .then((data) => {
-                        const accessInfo = {
-                            access_token: data.access_token,
-                            refresh_token: data.refresh_token,
-                            date: (new Date().getDate() + '/' + (new Date().getMonth() + 1) + '/' + new Date().getFullYear()),
-                            hour: (new Date().getHours() + ':' + new Date().getMinutes() + ':' + new Date().getSeconds())
-                        };
-                        setTokenInfo(accessInfo);
-                        localStorage.setItem('accessInfo', JSON.stringify(accessInfo));
-                        everyFifthyFive(data.refresh_token);
-                    });
-                }
-            } else if(tokenInfo.date === todaysDate && ((new Date().getHours()) < (newDate.getHours() + 1))) {
-                if(timeForIntervalHR > 0 && timeHasPassedInHours >= 0.916667) {
+            let intervalTimeMS = timeForIntervalHR * 3.6e+6;
+            let todaysDate = (new Date().getDate()) + '/' + ((new Date().getMonth() + 1)) + '/' + (new Date().getFullYear());            
+            
+            if (tokenInfo.date !== todaysDate) {
+                getRefreshToken(tokenInfo.refresh_token)
+                .then((data) => {
+                    const accessInfo = JSON.parse(localStorage.getItem('accessInfo'));
+                    accessInfo.access_token = data.access_token;
+                    if(data.hasOwnProperty('refresh_token')) accessInfo.refresh_token = data.refresh_token;
+                    accessInfo.date = (new Date().getDate() + '/' + (new Date().getMonth() + 1) + '/' + new Date().getFullYear());
+                    accessInfo.hour = (new Date().getHours() + ':' + new Date().getMinutes() + ':' + new Date().getSeconds());
+                    everyFifthyFive(accessInfo.refresh_token);
+                    setTokenInfo(accessInfo);
+                    localStorage.setItem('accessInfo', JSON.stringify(accessInfo));
+                });
+            } else if(tokenInfo.date === todaysDate && timeHasPassedInHours < 0.916667) {
+                if(timeForIntervalHR > 0) {
                     setTimeout(() => {
                         getRefreshToken(tokenInfo.refresh_token)
                         .then((data) => {
-                            const accessInfo = {
-                                access_token: data.access_token,
-                                refresh_token: data.refresh_token,
-                                date: (new Date().getDate() + '/' + (new Date().getMonth() + 1) + '/' + new Date().getFullYear()),
-                                hour: (new Date().getHours() + ':' + new Date().getMinutes() + ':' + new Date().getSeconds())
-                            };
+                            console.log(data)
+                            const accessInfo = JSON.parse(localStorage.getItem('accessInfo'));
+                            accessInfo.access_token = data.access_token;
+                            if(data.hasOwnProperty('refresh_token')) accessInfo.refresh_token = data.refresh_token;
+                            accessInfo.date = (new Date().getDate() + '/' + (new Date().getMonth() + 1) + '/' + new Date().getFullYear());
+                            accessInfo.hour = (new Date().getHours() + ':' + new Date().getMinutes() + ':' + new Date().getSeconds());
                             setTokenInfo(accessInfo);
+                            everyFifthyFive(accessInfo.refresh_token);
                             localStorage.setItem('accessInfo', JSON.stringify(accessInfo));
-                            everyFifthyFive(data.refresh_token);
                         });
                     }, intervalTimeMS);
+                }
+            } else if(tokenInfo.date === todaysDate) {
+                if((new Date().getHours()) > (newDate.getHours() + 1)) {
+                    getRefreshToken(tokenInfo.refresh_token)
+                    .then((data) => {
+                        console.log(data)
+                        const accessInfo = JSON.parse(localStorage.getItem('accessInfo'));
+                        accessInfo.access_token = data.access_token;
+                        if(data.hasOwnProperty('refresh_token')) accessInfo.refresh_token = data.refresh_token;
+                        accessInfo.date = (new Date().getDate() + '/' + (new Date().getMonth() + 1) + '/' + new Date().getFullYear());
+                        accessInfo.hour = (new Date().getHours() + ':' + new Date().getMinutes() + ':' + new Date().getSeconds());
+                        everyFifthyFive(accessInfo.refresh_token);
+                        setTokenInfo(accessInfo);
+                        localStorage.setItem('accessInfo', JSON.stringify(accessInfo));
+                    });
                 }
             }            
         }
