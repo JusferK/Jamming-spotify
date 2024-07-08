@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
 import magnifyingGlass from '../../../utilities/search_24dp_FILL0_wght400_GRAD0_opsz24.svg';
+import addIcon from '../../../utilities/add.svg';
+import removeIcon from '../../../utilities/remove.svg';
+import moreActionsIcon from '../../../utilities/actions.svg';
+import orderByIcon from '../../../utilities/order.svg';
+import editIcon from '../../../utilities/edit.svg';
+import durationIcon from '../../../utilities/time.svg';
+import playIcon from '../../../utilities/play_arrow.svg';
 
 const listedItemsCreator = (children, keyInfo, currentIndex, customFuc, idKey) => <li key={keyInfo} id={idKey} onClick={() => customFuc(keyInfo, currentIndex)}>{children}</li>;
 const paragraphCreator = (children, custKey) => <p key={custKey}>{children}</p>;
@@ -67,8 +74,7 @@ export default function Playlist(props) {
     return (
         <>
             <div>
-                <p>add, less, edit button icon's div</p>
-                
+                <Actions />
             </div>
             <div>
                 <SearchInput keyUpHandler={keyUpHandlerFunction} />
@@ -180,30 +186,72 @@ export function ShowPlaylistItems(props) {
     const [tracks, setTracks] = useState(null);
     const [arrayOfListedItems, setArrayOfListedItems] = useState(null);
     const [biggerPictureFrame, setBiggerPictureFrame] = useState(null);
+    const trFabric = (children) => <tr>{children}</tr>
+    const tdFabric = (children) => <td>{children}</td>
 
-    const listedItemsFabric = array => {
-        return array.map(item => {
-            let image = imageCreeator(item.track.album.images.length === 3 ? item.track.album.images[1].url : item.track.album.images[0].url, 'song image', 100, 100);
-            let paragraph = paragraphCreator(item.track.name);
-            let author = [];
+    const millisToMinutesAndSeconds = millis => {
+        var minutes = Math.floor(millis / 60000);
+        var seconds = ((millis % 60000) / 1000).toFixed(0);
+        return minutes + ":" + (seconds < 10 ? '0' : '') + seconds;
+      }
+
+    const tdCreatorFabric = array => {
+
+        let months = [
+            'January',
+            'February',
+            'March',
+            'April',
+            'May',
+            'June',
+            'July',
+            'August',
+            'September',
+            'October',
+            'November',
+            'December',
+        ]        
+
+        return array.map((item, index) => {
+
+            let tdNumber = tdFabric((index + 1)); 
+            let tdAlbum = tdFabric(item.track.album.name);
             
+            
+            let author;
             if(item.track.artists.length === 1) {
-                author.push(paragraphCreator(item.track.artists[0].name, (item.track.artists[0].id + '_' + (Math.floor(Math.random() + 100)))));
+                author = item.track.artists[0].name;
             } else {
-                author.push(item.track.artists.map(artist => paragraphCreator(artist.name, (artist.id + '_' + (Math.floor(Math.random() + 100)) + '_' + (Math.floor(Math.random() + 100))))));
+                let tempArray = []
+                tempArray.push(item.track.artists.map(artist => artist.name));
+                author = tempArray[0].join(', ');
             }
 
-            let fragment = (
+            let titleFragment = (
                 <>
-                    {image}
-                    {paragraph}
-                    {author.map((auth, authorIndex) => <div key={`auth-${item.track.id}-${authorIndex}`}>{auth}</div>)}
+                    {imageCreeator(item.track.album.images.length === 3 ? item.track.album.images[1].url : item.track.album.images[0].url, 'song image', 100, 100)}
+                    {item.track.name}
+                    {author}
                 </>
             );
 
-            let listItemToBeReturned = listedItemsCreator(fragment, (item.track.id + '_li_' + (Math.floor(Math.random() * 100)) + '_' + (Math.floor(Math.random() * 100))));
-            
-            return listItemToBeReturned;
+            let tdTitleFragment = tdFabric(titleFragment);
+            let addedDate = new Date(item.added_at);
+            let tdFullAddedDate = tdFabric((months[addedDate.getUTCMonth()] + ' ' + addedDate.getUTCDate() + ', ' + addedDate.getUTCFullYear()));
+            let tdTimeDuration = millisToMinutesAndSeconds(item.track.duration_ms);
+
+            let finalFragment = (
+                <>
+                    {tdNumber}
+                    {tdTitleFragment}
+                    {tdAlbum}
+                    {tdFullAddedDate}
+                    {tdTimeDuration}
+                    <button><img src={playIcon}/></button>
+                </>
+            );
+
+            return trFabric(finalFragment);
         });
     };
 
@@ -224,9 +272,9 @@ export function ShowPlaylistItems(props) {
 
 
         if(tracks !== null && itemsToDisplayClicked === null) {
-            setArrayOfListedItems(listedItemsFabric(tracks.items));
+            setArrayOfListedItems(tdCreatorFabric(tracks.items));
         } else if(itemsToDisplayClicked !== null) {
-            setArrayOfListedItems(listedItemsFabric(itemsToDisplayClicked.items.items));
+            setArrayOfListedItems(tdCreatorFabric(itemsToDisplayClicked.items.items));
             setTracks(null);
         }
 
@@ -271,16 +319,24 @@ export function ShowPlaylistItems(props) {
                 <>
                     <div>
                         {biggerPictureFrame}
+                        <button><img src={orderByIcon} /></button>
+                        <button><img src={editIcon} /></button>
+                        <button>Save</button>
                     </div>
                     <div>
-                        {(arrayOfListedItems !== null && Array.isArray(arrayOfListedItems)) && 
-                        (
-                            <ul>
-                                {
-                                    Array.isArray(arrayOfListedItems) && arrayOfListedItems.map(item => item)
-                                }
-                            </ul>
-                        )}
+                        <table>
+                            <tr>
+                                <th>#</th>
+                                <th>Title</th>
+                                <th>Album</th>
+                                <th>Date added</th>
+                                <th><img src={durationIcon}/></th>
+                                <th></th>
+                            </tr>
+                            {Array.isArray(arrayOfListedItems) && arrayOfListedItems.map(item => item)}
+                        </table>
+
+
                     </div>
                 </>
             )}        
@@ -300,3 +356,14 @@ export function SearchInput(props) {
         </>
     );
 }
+
+export function Actions(props) {
+    return (
+        <>
+            <button><img src={addIcon} /></button>
+            <button><img src={removeIcon} /></button>
+            <button><img src={moreActionsIcon} /></button>
+            <button><img src={orderByIcon} /></button>
+        </>
+    )
+} 
