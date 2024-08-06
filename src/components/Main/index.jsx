@@ -142,7 +142,6 @@ export default function Main() {
                     setTimeout(() => {
                         getRefreshToken(tokenInfo.refresh_token)
                         .then((data) => {
-                            console.log(data)
                             const accessInfo = JSON.parse(localStorage.getItem('accessInfo'));
                             accessInfo.access_token = data.access_token;
                             if(data.hasOwnProperty('refresh_token')) accessInfo.refresh_token = data.refresh_token;
@@ -196,8 +195,7 @@ export default function Main() {
 
     useEffect(() => {
         if(profile !== null && userPlaylist === null) {
-            const playListURL = `https://api.spotify.com/v1/users/${profile.id}/playlists`;
-            fetch(playListURL, {
+            fetch(`https://api.spotify.com/v1/users/${profile.id}/playlists`, {
                 method: 'GET',
                 headers: {'Authorization': 'Bearer ' + tokenInfo?.access_token},
             })
@@ -205,7 +203,56 @@ export default function Main() {
             .then((answer) => {
                 userPlaylist === null && setUserPlaylist(answer);
                 localStorage.setItem('playlists', JSON.stringify(answer));
-            })
+            });
+        } else if(userPlaylist !== null && profile !== null) {
+            let partsFullDate = tokenInfo.date.split('/');
+            let partsFullHour = tokenInfo.hour.split(':');
+            let newDate = new Date(partsFullDate[2], (partsFullDate[1] - 1), partsFullDate[0], partsFullHour[0], partsFullHour[1], partsFullHour[2]);
+            let milisecondsHasPassed = (new Date().getTime()) - newDate.getTime();
+            let timeHasPassedInHours = milisecondsHasPassed / 3.6e+6;
+            let timeForIntervalHR = 0.916667 - timeHasPassedInHours;
+            let intervalTimeMS = timeForIntervalHR * 3.6e+6;
+            let todaysDate = (new Date().getDate()) + '/' + ((new Date().getMonth() + 1)) + '/' + (new Date().getFullYear());
+
+            if (tokenInfo.date !== todaysDate) {
+                fetch(`https://api.spotify.com/v1/users/${profile.id}/playlists`, {
+                method: 'GET',
+                headers: {'Authorization': 'Bearer ' + tokenInfo?.access_token},
+                })
+                .then((response) => response.json())
+                .then((answer) => {
+                    setUserPlaylist(answer);
+                    localStorage.setItem('playlists', JSON.stringify(answer));
+                });
+            } else if(tokenInfo.date === todaysDate && timeHasPassedInHours < 0.916667) {
+                if(timeForIntervalHR > 0) {
+                    setTimeout(() => {
+                        fetch(`https://api.spotify.com/v1/users/${profile.id}/playlists`, {
+                        method: 'GET',
+                        headers: {'Authorization': 'Bearer ' + tokenInfo?.access_token},
+                        })
+                        .then((response) => response.json())
+                        .then((answer) => {
+                            setUserPlaylist(answer);
+                            localStorage.setItem('playlists', JSON.stringify(answer));
+                        });
+                    }, intervalTimeMS);
+                }
+            } else if(tokenInfo.date === todaysDate) {
+                if((new Date().getHours()) > (newDate.getHours() + 1)) {
+                    setInterval(() => {
+                        fetch(`https://api.spotify.com/v1/users/${profile.id}/playlists`, {
+                        method: 'GET',
+                        headers: {'Authorization': 'Bearer ' + tokenInfo?.access_token},
+                        })
+                        .then((response) => response.json())
+                        .then((answer) => {
+                            setUserPlaylist(answer);
+                            localStorage.setItem('playlists', JSON.stringify(answer));
+                        });
+                    }, fifthyFiveMinutes);
+                }
+            }
         }
     }, [profile]);
 

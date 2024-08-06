@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import magnifyingGlass from '../../../utilities/search_24dp_FILL0_wght400_GRAD0_opsz24.svg';
 import addIcon from '../../../utilities/add.svg';
 import removeIcon from '../../../utilities/remove.svg';
@@ -7,6 +7,7 @@ import orderByIcon from '../../../utilities/order.svg';
 import editIcon from '../../../utilities/edit.svg';
 import durationIcon from '../../../utilities/time.svg';
 import playIcon from '../../../utilities/play_arrow.svg';
+import playlistDefaultPhoto from '../../../utilities/playlistDefaultPhoto.svg';
 
 const listedItemsCreator = (children, keyInfo, currentIndex, customFuc, idKey) => <li key={keyInfo} id={idKey} onClick={() => customFuc(keyInfo, currentIndex)}>{children}</li>;
 const paragraphCreator = (children, custKey) => <p key={custKey}>{children}</p>;
@@ -22,6 +23,8 @@ export default function Playlist(props) {
     const [itemSearchedFound, setItemSearchedFound] = useState([]);
     const [indexClickedSearched, setIndexClickedSearched] = useState(-1);
     const [searchedPlaylistArray, setSearchedPlaylistArray] = useState([]);
+    const [addPlaylistSignalValue, setAddPlaylistSignalValue] = useState(false);
+    const [profileInfo, setProfileInfo] = useState(JSON.parse(localStorage.getItem('profile')));
 
     const referenceFinder = (item, saveItem) => {
         if(arrayOfPlaylistsItems.length !== 0) {
@@ -39,15 +42,38 @@ export default function Playlist(props) {
     };
 
     const keyUpHandlerFunction = (e) => {
-        setShowSearchPlaylist(e.target.value);
+        setShowSearchPlaylist(prev => {
+            (indexClickedSearched === -1 && e.target.value !== prev) && setSearchedPlaylistArray([]);
+            return e.target.value;
+        });
         setItemSearchedFound([]);
-        setSearchedPlaylistArray([]);
     };
 
     const sideClickSearchHandler = index => {
         setIndexClickedSearched(index);
     };
 
+    const addPlaylistHandler = () => {
+        setAddPlaylistSignalValue(true);
+    };
+
+    const removePlaylistHandler = () => {
+        
+    };
+
+    const moreActionsHandler = () => {
+        
+    };
+
+    const reOrderHandler = () => {
+        
+    };
+
+    const cancelAddBtnHandler = () => setAddPlaylistSignalValue(false);
+
+
+    const actionsHandlerArray = [addPlaylistHandler, removePlaylistHandler, moreActionsHandler, reOrderHandler];
+    const addPlaylistBox = [addPlaylistSignalValue, cancelAddBtnHandler]
     
     
     useEffect(() => {
@@ -74,13 +100,13 @@ export default function Playlist(props) {
     return (
         <>
             <div>
-                <Actions />
+                <Actions actionsFunctionHandler={actionsHandlerArray} />
             </div>
             <div>
                 <SearchInput keyUpHandler={keyUpHandlerFunction} />
             </div>
             <div>
-                <PlaylistSection data={playlists} onclick={clickHandler} currentIndex={indexG} playlistToShow={showSearchPlaylist} sideFunctionHandler={referenceFinder} searchHandler={sideClickSearchHandler} sideIndex={indexClickedSearched} />
+                <PlaylistSection data={playlists} onclick={clickHandler} currentIndex={indexG} playlistToShow={showSearchPlaylist} sideFunctionHandler={referenceFinder} searchHandler={sideClickSearchHandler} sideIndex={indexClickedSearched} addPlaylistSignal={addPlaylistBox} profileInfoProp={profileInfo} accessInfoProp={accessInfo} />
                 <ShowPlaylistItems playlistToDisplay={playlistToSend} itemsToDisplay={arrayOfPlaylistsItems} indexOfListToDisplay={indexG} searchedIndex={indexClickedSearched} itemsToDisplaySearched={itemSearchedFound} playlistSearchedFoundDiv={searchedPlaylistArray} />
             </div>
         </>
@@ -88,14 +114,23 @@ export default function Playlist(props) {
 }
 
 export function PlaylistSection(props) {
-    const { data, onclick, currentIndex, playlistToShow, sideFunctionHandler, searchHandler, sideIndex } = props;
+    const { data, onclick, currentIndex, playlistToShow, sideFunctionHandler, searchHandler, sideIndex, addPlaylistSignal, profileInfoProp, accessInfoProp } = props;
     const [playlistToShowOnList, setPlaylistToShowOnList] = useState([]);
     const [notFound, setNotFound] = useState(true);
     const [queryArrayList, setQueryArrayList] = useState([]);
+    const [formValue, setFormValue] = useState({
+        name: 'New playlist',
+        description: '',
+        public: false
+    });
+
+    const [arrayOfListedItems, setArrayOfListedItems] = useState([]);
+    
+    const ulRef = useRef(null);
 
     const listedItemsFabric = (array, text, onclickArg, indexToWork) => {
         return array.map((item, index) => {
-            let image = imageCreeator(item.images.length === 3 ? item.images[1].url : item.images[0].url, 'playlist image', 150, 150);
+            let image = item.images !== null ? item.images.length !== 0 ? imageCreeator(item.images.length === 3 ? item.images[1].url : item.images[0].url, 'playlist image', 150, 150) : imageCreeator(playlistDefaultPhoto, 'playlist image', 150, 150) : imageCreeator(playlistDefaultPhoto, 'playlist image', 150, 150);
             let paragraph = paragraphCreator(item.name);
 
             let fragment = (
@@ -114,7 +149,12 @@ export function PlaylistSection(props) {
         });
     };
 
-    const arrayOfListedItems = listedItemsFabric(data, '', onclick, currentIndex);
+    useEffect(() => {
+        setArrayOfListedItems([]);
+        setArrayOfListedItems(prev => [...prev, listedItemsFabric(data, '', onclick, currentIndex)]);
+    }, [data]);
+
+
 
     useEffect(() => {
         setPlaylistToShowOnList([]);
@@ -150,10 +190,89 @@ export function PlaylistSection(props) {
     }, [playlistToShowOnList]);
 
     let fragmentToShow = (
-        <ul>
+        <ul ref={ulRef}>
             {queryArrayList.length !== 0 && (queryArrayList.length === 1 ? queryArrayList[0] : queryArrayList.map(item => item))}
         </ul>
     );
+
+    let btnSaveCancel = addPlaylistSignal[0] && <button onClick={addPlaylistSignal[1]}>Cancel</button>;
+    const onSubmitHandler = (e) => {
+
+        e.preventDefault();
+        let newID = {text: 'idk'};
+        
+        fetch(`https://api.spotify.com/v1/users/${profileInfoProp.id}/playlists`, {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + accessInfoProp.access_token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formValue)
+        })
+        .then(response => response.json())
+        .then((answer) => {
+            if(!answer.hasOwnProperty('error')) {
+                let savedPlaylist = JSON.parse(localStorage.getItem('playlists'));
+                savedPlaylist.items.push(answer);
+                localStorage.setItem('playlists', JSON.stringify(savedPlaylist));
+                newID.text = answer.id;
+            }
+        });
+
+        let defaultPlaylistPhotoInsert = imageCreeator(playlistDefaultPhoto, 'playlist photo', 150, 150);
+        let newPlaylistTitle = paragraphCreator(formValue.name, newID.text);
+
+        let fragment = (
+            <>
+                {newPlaylistTitle}
+                {defaultPlaylistPhotoInsert}
+            </>
+        );
+
+        let elementToBeAdded = listedItemsCreator(fragment, (newID.text + '_key'), data.length + 1, onclick);
+
+        setArrayOfListedItems(prev => [...prev, elementToBeAdded]);
+
+        setFormValue({
+            name: 'New playlist',
+            description: '',
+            public: false,
+            image: null
+        });
+        
+        addPlaylistSignal[1]();
+    };
+
+    const handleChange = (e) => {
+        setFormValue(prev => ({
+            ...prev,
+            [e.target.name]: e.target.value
+        }));
+    };
+
+    const checkboxHandleChange = (e) => {
+        setFormValue(prev => ({
+            ...prev,
+            [e.target.name]: e.target.checked
+        }));
+    };
+
+    let addPlaylistForm = addPlaylistSignal[0] ? 
+    (
+        <li>
+            <form>
+                <input type="text" placeholder="New playlist" name="name" onChange={handleChange} />
+                <input type="text" placeholder="Description" name="description" onChange={handleChange}/>
+                <label htmlFor="publicInput">Public </label>
+                <input type="checkbox" name="public" id="publicInput" onChange={checkboxHandleChange}/>
+                <br />
+                <input type="submit" value="Submit" onClick={onSubmitHandler} />
+            </form>
+        </li>
+    ) : (
+        <>
+        </>
+    )
 
     return (
         <>
@@ -165,7 +284,7 @@ export function PlaylistSection(props) {
                 <>
                     {notFound && playlistToShow === '' ? (
                         <>
-                            <ul>
+                            <ul ref={ulRef}>
 	                            {arrayOfListedItems.map(item => item)}
                             </ul>
                         </>
@@ -176,6 +295,34 @@ export function PlaylistSection(props) {
                     )}
                 </>
             )}
+            {addPlaylistForm} 
+            {btnSaveCancel}
+        </>
+    );
+}
+
+export function SearchInput(props) {
+
+    const { keyUpHandler } = props;
+
+    return(
+        <>
+            <input type="text" placeholder="Search a playlist" onKeyUp={keyUpHandler} />
+            <img src={magnifyingGlass}/>
+        </>
+    );
+}
+
+export function Actions(props) {
+
+    const { actionsFunctionHandler } = props;
+
+    return (
+        <>
+            <button onClick={actionsFunctionHandler[0]}><img src={addIcon} /></button>
+            <button onClick={actionsFunctionHandler[1]}><img src={removeIcon} /></button>
+            <button onClick={actionsFunctionHandler[2]}><img src={moreActionsIcon} /></button>
+            <button onClick={actionsFunctionHandler[3]}><img src={orderByIcon} /></button>
         </>
     );
 }
@@ -186,6 +333,7 @@ export function ShowPlaylistItems(props) {
     const [tracks, setTracks] = useState(null);
     const [arrayOfListedItems, setArrayOfListedItems] = useState(null);
     const [biggerPictureFrame, setBiggerPictureFrame] = useState(null);
+    const [playlistSearchedOutter, setPlaylistSearchedOutter] = useState(null);
     const trFabric = (children) => <tr>{children}</tr>
     const tdFabric = (children) => <td>{children}</td>
 
@@ -193,7 +341,7 @@ export function ShowPlaylistItems(props) {
         var minutes = Math.floor(millis / 60000);
         var seconds = ((millis % 60000) / 1000).toFixed(0);
         return minutes + ":" + (seconds < 10 ? '0' : '') + seconds;
-      }
+    };
 
     const tdCreatorFabric = array => {
 
@@ -263,17 +411,16 @@ export function ShowPlaylistItems(props) {
 
     useEffect(() => {
         let itemsToDisplayClicked = null;
-        let biggerPicture = null;
+        searchedIndex === -1 && setPlaylistSearchedOutter(null);
 
         if(searchedIndex !== -1) {
             itemsToDisplayClicked = itemsToDisplaySearched[searchedIndex];
-            biggerPicture = playlistSearchedFoundDiv[searchedIndex];
+            setPlaylistSearchedOutter(playlistSearchedFoundDiv[searchedIndex]);
         }
-
 
         if(tracks !== null && itemsToDisplayClicked === null) {
             setArrayOfListedItems(tdCreatorFabric(tracks.items));
-        } else if(itemsToDisplayClicked !== null) {
+        } else if(itemsToDisplayClicked !== null && itemsToDisplayClicked !== undefined) {
             setArrayOfListedItems(tdCreatorFabric(itemsToDisplayClicked.items.items));
             setTracks(null);
         }
@@ -282,33 +429,51 @@ export function ShowPlaylistItems(props) {
             setBiggerPictureFrame(
                 <>
                     <h2>{playlistToDisplay.name}</h2>
-                    <img src={playlistToDisplay.images[0].url} alt='playlist image' width='400px' height='400px' />
+                    {playlistToDisplay.images !== null ? (
+                        playlistToDisplay.images.length !== 0 ? <img src={playlistToDisplay.images.length === 3 ? playlistToDisplay.images[1].url : playlistToDisplay.images[0].url} alt='playlist image' width='400px' height='400px' /> : <img src={playlistDefaultPhoto} alt='playlist image' width='400px' height='400px' />
+                    ) : (
+                        <img src={playlistDefaultPhoto} alt='playlist image' width='400px' height='400px' />
+                    )}
+                    <p>{playlistToDisplay.description}</p>
                     <a href={playlistToDisplay.external_urls.spotify} target="_blank">Link to spotify playlist</a>
                     <br />
                     <p>Owner: <a href={playlistToDisplay.owner.external_urls.spotify} target="_blank"> {playlistToDisplay.owner.display_name}</a></p>
                 </>
             );
-        } else if(searchedIndex !== -1 && playlistSearchedFoundDiv.length !== 0 && biggerPicture !== null) {
+        } else if(searchedIndex !== -1 && playlistSearchedFoundDiv.length !== 0 && playlistSearchedOutter !== null) {
             setBiggerPictureFrame(
                 <>
-                    <h2>{biggerPicture.name}</h2>
-                    <img src={biggerPicture.images[0].url} alt='playlist image' width='400px' height='400px' />
-                    <a href={biggerPicture.external_urls.spotify} target="_blank">Link to spotify playlist</a>
+                    <h2>{playlistSearchedOutter.name}</h2>
+                    {playlistSearchedOutter.images !== null ? (
+                        playlistSearchedOutter.images.length !== 0 ? <img src={playlistSearchedOutter.images.length === 3 ? playlistSearchedOutter.images[1].url : playlistSearchedOutter.images[0].url} alt='playlist image' width='400px' height='400px' /> : <img src={playlistDefaultPhoto} alt='playlist image' width='400px' height='400px' />
+                    ) : (
+                        <img src={playlistDefaultPhoto} alt='playlist image' width='400px' height='400px' />
+                    )}
+
+                    <p>{playlistSearchedOutter.description}</p>
+                    <a href={playlistSearchedOutter.external_urls.spotify} target="_blank">Link to spotify playlist</a>
                     <br />
-                    <p>Owner: <a href={biggerPicture.owner.external_urls.spotify} target="_blank"> {biggerPicture.owner.display_name}</a></p>
+                    <p>Owner: <a href={playlistSearchedOutter.owner.external_urls.spotify} target="_blank"> {playlistSearchedOutter.owner.display_name}</a></p>
                 </>
             );
         }
-
-    }, [searchedIndex, tracks]);
+    }, [searchedIndex, tracks, playlistSearchedOutter]);
 
     useEffect(() => {
-        if(arrayOfListedItems !== null) {
-            if(arrayOfListedItems.length !== 0 && arrayOfListedItems !== null && arrayOfListedItems !== undefined && biggerPictureFrame !== null) {
+        if(Array.isArray(arrayOfListedItems) && arrayOfListedItems !== null && tracks !== null) {
+            if(tracks.total === 0 && biggerPictureFrame !== null && arrayOfListedItems.length === 0) {
+                setHasContent(true);
+            } else if(arrayOfListedItems.length !== 0 && arrayOfListedItems !== undefined && biggerPictureFrame !== null) {
                 setHasContent(true);
             }
         }
-    }, [arrayOfListedItems]);
+    }, [arrayOfListedItems, tracks]);
+
+    useEffect(() => {
+        if(playlistSearchedOutter !== null) {
+            (biggerPictureFrame !== null && playlistSearchedOutter.tracks.total === 0 && searchedIndex !== -1) && setHasContent(true);
+        }
+    }, [playlistSearchedOutter, biggerPictureFrame]);
 
     return (
         <>
@@ -333,7 +498,9 @@ export function ShowPlaylistItems(props) {
                                 <th><img src={durationIcon}/></th>
                                 <th></th>
                             </tr>
-                            {Array.isArray(arrayOfListedItems) && arrayOfListedItems.map(item => item)}
+                            <tbody>
+                                {Array.isArray(arrayOfListedItems) && arrayOfListedItems.map(item => item)}
+                            </tbody>
                         </table>
 
 
@@ -344,26 +511,3 @@ export function ShowPlaylistItems(props) {
     );
 
 }
-
-export function SearchInput(props) {
-
-    const { keyUpHandler } = props;
-
-    return(
-        <>
-            <input type="text" placeholder="Search a playlist" onKeyUp={keyUpHandler} />
-            <img src={magnifyingGlass}/>
-        </>
-    );
-}
-
-export function Actions(props) {
-    return (
-        <>
-            <button><img src={addIcon} /></button>
-            <button><img src={removeIcon} /></button>
-            <button><img src={moreActionsIcon} /></button>
-            <button><img src={orderByIcon} /></button>
-        </>
-    )
-} 
